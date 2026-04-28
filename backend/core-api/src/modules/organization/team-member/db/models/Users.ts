@@ -108,7 +108,7 @@ export interface IUserModel extends Model<IUserDocument> {
   changePassword(
     params: IPasswordParams & { currentPassword: string },
   ): Promise<IUserDocument>;
-  forgotPassword(email: string): Promise<string>;
+  forgotPassword(email: string): Promise<string | null>;
   createTokens(_user: IUserDocument, secret: string): string[];
   refreshTokens(refreshToken: string): {
     token: string;
@@ -693,6 +693,11 @@ export const loadUserClass = (
 
     /*
      * Sends reset password link to found user's email
+     *
+     * To prevent user enumeration (OWASP A07:2021), this function does not
+     * disclose whether the supplied email maps to a registered account. When
+     * the email does not exist it returns null silently; callers must produce
+     * an identical response whether or not a token was generated.
      */
     public static async forgotPassword(email: string) {
       // find user
@@ -701,7 +706,7 @@ export const loadUserClass = (
       });
 
       if (!user) {
-        throw new Error('Invalid email');
+        return null;
       }
 
       // create the random token

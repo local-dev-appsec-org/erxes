@@ -97,33 +97,48 @@ export const authMutations = {
 
   /*
    * Send forgot password email
+   *
+   * The response intentionally does not vary based on whether the supplied
+   * email is registered. Disclosing that distinction (via either an error
+   * message or a divergent return value) would allow an unauthenticated
+   * attacker to enumerate user accounts (OWASP A07:2021). All errors raised
+   * during lookup or email delivery are swallowed for the same reason; the
+   * caller always sees the same generic acknowledgement.
    */
   async forgotPassword(
     _parent: undefined,
     { email }: { email: string },
     { subdomain, models }: IContext,
   ) {
-    const token = await models.Users.forgotPassword(email);
+    try {
+      const token = await models.Users.forgotPassword(email);
 
-    // send email ==============
-    const DOMAIN = getEnv({ name: 'DOMAIN', subdomain });
+      if (token) {
+        // send email ==============
+        const DOMAIN = getEnv({ name: 'DOMAIN', subdomain });
 
-    const link = `${DOMAIN}/reset-password?token=${token}`;
+        const link = `${DOMAIN}/reset-password?token=${token}`;
 
-    // await utils.sendEmail(
-    //   subdomain,
-    //   {
-    //     toEmails: [email],
-    //     title: 'Reset password',
-    //     template: {
-    //       name: 'resetPassword',
-    //       data: {
-    //         content: link,
-    //       },
-    //     },
-    //   },
-    //   models
-    // );
+        // await utils.sendEmail(
+        //   subdomain,
+        //   {
+        //     toEmails: [email],
+        //     title: 'Reset password',
+        //     template: {
+        //       name: 'resetPassword',
+        //       data: {
+        //         content: link,
+        //       },
+        //     },
+        //   },
+        //   models
+        // );
+        void link;
+      }
+    } catch (_e) {
+      // Suppress any underlying error (lookup, SMTP, template) so the response
+      // cannot be used to distinguish registered from unregistered emails.
+    }
 
     return 'sent';
   },
